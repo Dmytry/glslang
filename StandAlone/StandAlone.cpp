@@ -51,6 +51,11 @@
 
 #include "../glslang/OSDependent/osinclude.h"
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+
 extern "C" {
     SH_IMPORT_EXPORT void ShOutputHtml();
 }
@@ -74,6 +79,7 @@ enum TOptions {
     EOptionVulkanRules        = 0x2000,
     EOptionDefaultDesktop     = 0x4000,
     EOptionOutputPreprocessed = 0x8000,
+	EOptionOutputBinding = 0x10000,
 };
 
 //
@@ -448,6 +454,8 @@ int Options = 0;
 const char* ExecutableName = nullptr;
 const char* binaryFileName = nullptr;
 
+const char* bindingFileName = nullptr;
+
 //
 // Create the default name for saving a binary if -o is not provided.
 //
@@ -528,6 +536,16 @@ void ProcessArguments(int argc, char* argv[])
                 break;
             case 'E':
                 Options |= EOptionOutputPreprocessed;
+                break;
+			case 'b':
+				Options |= EOptionLinkProgram;                
+				Options |= EOptionOutputBinding;				
+				bindingFileName = argv[1];
+                if (argc > 0) {
+                    argc--;
+                    argv++;
+                } else
+                    Error("no <file> provided for -b");
                 break;
             case 'c':
                 Options |= EOptionDumpConfig;
@@ -662,6 +680,96 @@ void StderrIfNonEmpty(const char* str)
     }
 }
 
+#include "../glslang/MachineIndependent/gl_types.h"
+
+const char *GetUniformTypeString(int type){
+    #define c(a,b) case a: return #b;
+    switch(type){
+        c(GL_FLOAT,float)
+        c(GL_FLOAT_VEC2,vec2)
+        c(GL_FLOAT_VEC3,vec3)
+        c(GL_FLOAT_VEC4,vec4)
+        c(GL_DOUBLE,double)
+        c(GL_DOUBLE_VEC2,dvec2)
+        c(GL_DOUBLE_VEC3,dvec3)
+        c(GL_DOUBLE_VEC4,dvec4)
+        c(GL_INT,int)
+        c(GL_INT_VEC2,ivec2)
+        c(GL_INT_VEC3,ivec3)
+        c(GL_INT_VEC4,ivec4)
+        c(GL_UNSIGNED_INT,unsigned int)
+        c(GL_UNSIGNED_INT_VEC2,uvec2)
+        c(GL_UNSIGNED_INT_VEC3,uvec3)
+        c(GL_UNSIGNED_INT_VEC4,uvec4)
+        c(GL_BOOL,bool)
+        c(GL_BOOL_VEC2,bvec2)
+        c(GL_BOOL_VEC3,bvec3)
+        c(GL_BOOL_VEC4,bvec4)
+        c(GL_FLOAT_MAT2,mat2)
+        c(GL_FLOAT_MAT3,mat3)
+        c(GL_FLOAT_MAT4,mat4)
+        c(GL_FLOAT_MAT2x3,mat2x3)
+        c(GL_FLOAT_MAT2x4,mat2x4)
+        c(GL_FLOAT_MAT3x2,mat3x2)
+        c(GL_FLOAT_MAT3x4,mat3x4)
+        c(GL_FLOAT_MAT4x2,mat4x2)
+        c(GL_FLOAT_MAT4x3,mat4x3)
+        c(GL_DOUBLE_MAT2,dmat2)
+        c(GL_DOUBLE_MAT3,dmat3)
+        c(GL_DOUBLE_MAT4,dmat4)
+        c(GL_DOUBLE_MAT2x3,dmat2x3)
+        c(GL_DOUBLE_MAT2x4,dmat2x4)
+        c(GL_DOUBLE_MAT3x2,dmat3x2)
+        c(GL_DOUBLE_MAT3x4,dmat3x4)
+        c(GL_DOUBLE_MAT4x2,dmat4x2)
+        c(GL_DOUBLE_MAT4x3,dmat4x3)
+        c(GL_SAMPLER_1D,sampler1D)
+        c(GL_SAMPLER_2D,sampler2D)
+        c(GL_SAMPLER_3D,sampler3D)
+        c(GL_SAMPLER_CUBE,samplerCube)
+        c(GL_SAMPLER_1D_SHADOW,sampler1DShadow)
+        c(GL_SAMPLER_2D_SHADOW,sampler2DShadow)
+        c(GL_SAMPLER_1D_ARRAY,sampler1DArray)
+        c(GL_SAMPLER_2D_ARRAY,sampler2DArray)
+        c(GL_SAMPLER_1D_ARRAY_SHADOW,sampler1DArrayShadow)
+        c(GL_SAMPLER_2D_ARRAY_SHADOW,sampler2DArrayShadow)
+        c(GL_SAMPLER_2D_MULTISAMPLE,sampler2DMS)
+        c(GL_SAMPLER_2D_MULTISAMPLE_ARRAY,sampler2DMSArray)
+        c(GL_SAMPLER_CUBE_SHADOW,samplerCubeShadow)
+        c(GL_SAMPLER_BUFFER,samplerBuffer)
+        c(GL_SAMPLER_2D_RECT,sampler2DRect)
+        c(GL_SAMPLER_2D_RECT_SHADOW,sampler2DRectShadow)
+        c(GL_INT_SAMPLER_1D,isampler1D)
+        c(GL_INT_SAMPLER_2D,isampler2D)
+        c(GL_INT_SAMPLER_3D,isampler3D)
+        c(GL_INT_SAMPLER_CUBE,isamplerCube)
+        c(GL_INT_SAMPLER_1D_ARRAY,isampler1DArray)
+        c(GL_INT_SAMPLER_2D_ARRAY,isampler2DArray)
+        c(GL_INT_SAMPLER_2D_MULTISAMPLE,isampler2DMS)
+        c(GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,isampler2DMSArray)
+        c(GL_INT_SAMPLER_BUFFER,isamplerBuffer)
+        c(GL_INT_SAMPLER_2D_RECT,isampler2DRect)
+        c(GL_UNSIGNED_INT_SAMPLER_1D,usampler1D)
+        c(GL_UNSIGNED_INT_SAMPLER_2D,usampler2D)
+        c(GL_UNSIGNED_INT_SAMPLER_3D,usampler3D)
+        c(GL_UNSIGNED_INT_SAMPLER_CUBE,usamplerCube)
+        c(GL_UNSIGNED_INT_SAMPLER_1D_ARRAY,usampler2DArray)
+        c(GL_UNSIGNED_INT_SAMPLER_2D_ARRAY,usampler2DArray)
+        c(GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE,usampler2DMS)
+        c(GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,usampler2DMSArray)
+        c(GL_UNSIGNED_INT_SAMPLER_BUFFER,usamplerBuffer)
+        c(GL_UNSIGNED_INT_SAMPLER_2D_RECT,usampler2DRect)
+    }
+    #undef c
+    return "unknown type";
+}
+
+std::string my_basename(const std::string &filename){
+    size_t pos=filename.find_last_of("/");
+	if(pos==std::string::npos)return filename;
+	return filename.substr(pos+1);
+}
+
 //
 // For linking mode: Will independently parse each item in the worklist, but then put them
 // in the same program and link them together.
@@ -740,7 +848,7 @@ void CompileAndLinkShaders()
         program.buildReflection();
         program.dumpReflection();
     }
-
+    
     if (Options & EOptionSpv) {
         if (CompileFailed || LinkFailed)
             printf("SPIR-V is not generated for failed compile or link\n");
@@ -758,6 +866,50 @@ void CompileAndLinkShaders()
             }
         }
     }
+    
+    if (Options & EOptionOutputBinding){
+		if (CompileFailed || LinkFailed) {
+            printf("binding is not generated for failed compile or link\n");
+		} else {
+			if(bindingFileName==nullptr)bindingFileName="out";
+			if(! (Options & EOptionDumpReflection))program.buildReflection();
+			
+			int uniforms=program.getNumLiveUniformVariables();
+			std::ofstream o_cpp((std::string(bindingFileName)+".cpp").c_str());
+			std::ofstream o_h((std::string(bindingFileName)+".h").c_str());
+			std::string class_name(my_basename(bindingFileName));
+			
+			std::stringstream list;
+			for(int i=0; i<uniforms; ++i){
+				const char *name=program.getUniformName(i);
+				if(name[0]=='g' && name[1]=='l' && name[2]=='_')continue;/// ignore built in uniforms
+				int type=program.getUniformType(i);
+				int size=program.getUniformArraySize(i);
+				const char *type_s=GetUniformTypeString(type);
+				list<<"UNIFORM("<<class_name<<","<<type_s<<","<<type<<","<<name<<","<<size<<")"<<std::endl;
+			}
+			std::cout<<list.str();
+			o_h<<"#ifndef "<<class_name<<"_h"<<std::endl;
+			o_h<<"#define "<<class_name<<"_h"<<std::endl;			
+			o_h<<"#define SHADER_CLASS "<<class_name<<std::endl;			
+			o_h<<"#include \"glsl_bind/begin_shader_header.h\""<<std::endl;
+			o_h<<"BEGIN_CLASS("<<class_name<<")"<<std::endl;
+			o_h<<list.str();
+			o_h<<"END_CLASS("<<class_name<<")"<<std::endl;
+			o_h<<"#undef SHADER_CLASS"<<std::endl;
+			o_h<<"#endif"<<std::endl;
+			
+			o_cpp<<"#define SHADER_CLASS "<<class_name<<std::endl;
+			o_cpp<<"#include \"glsl_bind/shader_constructor.h\""<<std::endl;
+			o_cpp<<"#include \""<<class_name<<".h\""<<std::endl;		
+			o_cpp<<"BEGIN_CONSTRUCTOR("<<class_name<<")"<<std::endl;
+			o_cpp<<list.str();
+			o_cpp<<"END_CONSTRUCTOR("<<class_name<<")"<<std::endl;
+			o_cpp<<"#include \"glsl_bind/shader_member_functions.h\""<<std::endl;
+			o_cpp<<list.str();			
+			
+		}
+	}
 
     // Free everything up, program has to go before the shaders
     // because it might have merged stuff from the shaders, and
@@ -992,6 +1144,7 @@ void usage()
            "  -t          multi-threaded mode\n"
            "  -v          print version strings\n"
            "  -w          suppress warnings (except as required by #extension : warn)\n"
+		   "  -b          Produce C++ bindings for Polynomial2 engine\n"
            );
 
     exit(EFailUsage);
