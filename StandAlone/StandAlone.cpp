@@ -881,6 +881,20 @@ EShLanguage FindLanguage(const std::string& name)
         return EShLangFragment;
     else if (suffix == "comp")
         return EShLangCompute;
+	else if (suffix == "glsl"){// support for my naming scheme, something_v.glsl something_f.glsl
+		if(ext>0){
+			char type=name[ext-1];
+			switch(type){
+				case 'v': return EShLangVertex;
+				case 'f': return EShLangFragment;
+				case 'g': return EShLangGeometry;
+				// I don't use those yet
+				case 't': return EShLangTessControl;
+				case 'e': return EShLangTessEvaluation;
+				case 'c': return EShLangCompute;
+			}
+		}
+	}
 
     usage();
     return EShLangVertex;
