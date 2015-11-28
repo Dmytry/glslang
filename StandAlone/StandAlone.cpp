@@ -790,8 +790,21 @@ void CompileAndLinkShaders()
 
     glslang::TProgram& program = *new glslang::TProgram;
     glslang::TWorkItem* workItem;
+	
+	std::string vertex_file_name, fragment_file_name, geometry_file_name;
+	
     while (Worklist.remove(workItem)) {
         EShLanguage stage = FindLanguage(workItem->name);
+		switch(stage){
+			case EShLangVertex:          vertex_file_name = workItem->name;    break;
+	        //case EShLangTessControl:     name = "tesc.spv";    break;
+	        //case EShLangTessEvaluation:  name = "tese.spv";    break;
+	        case EShLangGeometry:        geometry_file_name = workItem->name;    break;
+	        case EShLangFragment:        fragment_file_name = workItem->name;    break;
+	        //case EShLangCompute:         name = "comp.spv";    break;
+	        //default:                     name = "unknown";     break;
+		}
+		
         glslang::TShader* shader = new glslang::TShader(stage);
         shaders.push_back(shader);
     
@@ -897,9 +910,13 @@ void CompileAndLinkShaders()
 			o_h<<list.str();
 			o_h<<"END_CLASS("<<class_name<<")"<<std::endl;
 			o_h<<"#undef SHADER_CLASS"<<std::endl;
+			o_h<<"#include \"glsl_bind/end_shader_header.h\""<<std::endl;
 			o_h<<"#endif"<<std::endl;
 			
 			o_cpp<<"#define SHADER_CLASS "<<class_name<<std::endl;
+			o_cpp<<"#define SHADER_FILE_VERTEX \""<< vertex_file_name <<"\""<<std::endl;
+			o_cpp<<"#define SHADER_FILE_FRAGMENT \""<< fragment_file_name <<"\""<<std::endl;
+			o_cpp<<"#define SHADER_FILE_GEOMETRY \""<< geometry_file_name <<"\""<<std::endl;
 			o_cpp<<"#include \"glsl_bind/shader_constructor.h\""<<std::endl;
 			o_cpp<<"#include \""<<class_name<<".h\""<<std::endl;		
 			o_cpp<<"BEGIN_CONSTRUCTOR("<<class_name<<")"<<std::endl;
